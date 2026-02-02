@@ -5,9 +5,15 @@ import path from 'path';
 dotenv.config();
 
 function loadPrivateKey(): string {
+  // Option 1: Private key content directly in env var (for Docker/Railway)
+  if (process.env.GITHUB_PRIVATE_KEY) {
+    return process.env.GITHUB_PRIVATE_KEY.replace(/\\n/g, '\n');
+  }
+
+  // Option 2: Path to .pem file
   const keyPath = process.env.GITHUB_PRIVATE_KEY_PATH;
   if (!keyPath) {
-    throw new Error('GITHUB_PRIVATE_KEY_PATH is required');
+    throw new Error('Either GITHUB_PRIVATE_KEY or GITHUB_PRIVATE_KEY_PATH is required');
   }
 
   const absolutePath = path.resolve(keyPath);

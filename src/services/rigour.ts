@@ -41,6 +41,17 @@ interface AnalyzeResult {
   reviewBody: string;
 }
 
+// Type for Rigour API response failures
+interface RigourAPIFailure {
+  id: string;
+  gate: string;
+  severity: string;
+  message: string;
+  file?: string;
+  line?: number;
+  suggestion?: string;
+}
+
 export class RigourService {
   private apiUrl: string;
 
@@ -50,6 +61,10 @@ export class RigourService {
 
   async analyze(input: AnalyzeInput): Promise<AnalyzeResult> {
     try {
+      // Add timeout to prevent hanging requests
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30000); // 30s timeout
+
       // Call Rigour MCP API to analyze the changes
       const response = await fetch(`${this.apiUrl}/mcp`, {
         method: 'POST',
@@ -58,7 +73,7 @@ export class RigourService {
         },
         body: JSON.stringify({
           jsonrpc: '2.0',
-          id: 1,
+          id: `rigour-${Date.now()}-${Math.random().toString(36).slice(2)}`,
           method: 'tools/call',
           params: {
             name: 'rigour_review',
@@ -70,7 +85,10 @@ export class RigourService {
             },
           },
         }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeout);
 
       if (!response.ok) {
         throw new Error(`Rigour API error: ${response.status}`);
@@ -86,7 +104,11 @@ export class RigourService {
 
       return this.parseRigourResponse(result, input);
     } catch (error) {
-      console.error('Rigour API error, falling back to local analysis:', error);
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.error('Rigour API timeout, falling back to local analysis');
+      } else {
+        console.error('Rigour API error, falling back to local analysis:', error);
+      }
       return this.analyzeLocally(input);
     }
   }
@@ -206,7 +228,7 @@ export class RigourService {
     // Parse the Rigour response format
     try {
       const parsed = JSON.parse(result);
-      const findings: RigourFinding[] = parsed.failures?.map((f: any) => ({
+      const findings: RigourFinding[] = parsed.failures?.map((f: RigourAPIFailure) => ({
         id: f.id,
         gate: f.gate,
         severity: f.severity === 'FAIL' ? 'error' : 'warning',
@@ -223,15 +245,10 @@ export class RigourService {
         annotations: this.findingsToAnnotations(findings),
         reviewBody: this.generateReviewBody(findings, input),
       };
-    } catch {
-      // If parsing fails, treat as passed with no findings
-      return {
-        passed: true,
-        summary: 'Analysis completed',
-        findings: [],
-        annotations: [],
-        reviewBody: '✅ Rigour analysis completed with no issues detected.',
-      };
+    } catch (error) {
+      // FAIL SAFE: If parsing fails, fall back to local analysis instead of passing
+      console.error('Failed to parse Rigour API response, falling back to local analysis:', error);
+      return this.analyzeLocally(input);
     }
   }
 

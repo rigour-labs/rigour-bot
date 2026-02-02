@@ -109,20 +109,45 @@ export class GitHubService {
   }
 
   async getPRFiles(owner: string, repo: string, prNumber: number): Promise<PRFile[]> {
-    const response = await this.octokit.pulls.listFiles({
-      owner,
-      repo,
-      pull_number: prNumber,
-      per_page: 100,
-    });
+    // Use pagination to get all files (PRs can have 100+ files)
+    const files: PRFile[] = [];
+    let page = 1;
+    const perPage = 100;
 
-    return response.data.map((file) => ({
-      filename: file.filename,
-      status: file.status,
-      additions: file.additions,
-      deletions: file.deletions,
-      patch: file.patch,
-    }));
+    while (true) {
+      const response = await this.octokit.pulls.listFiles({
+        owner,
+        repo,
+        pull_number: prNumber,
+        per_page: perPage,
+        page,
+      });
+
+      files.push(
+        ...response.data.map((file) => ({
+          filename: file.filename,
+          status: file.status,
+          additions: file.additions,
+          deletions: file.deletions,
+          patch: file.patch,
+        }))
+      );
+
+      // If we got fewer than perPage, we've reached the end
+      if (response.data.length < perPage) {
+        break;
+      }
+
+      page++;
+
+      // Safety limit: GitHub caps at 3000 files anyway
+      if (page > 30) {
+        console.warn(`PR ${prNumber} has 3000+ files, truncating`);
+        break;
+      }
+    }
+
+    return files;
   }
 
   async createReviewComment(

@@ -1,15 +1,19 @@
-import { Application, Request, Response } from 'express';
+import { Application } from 'express';
 import { Webhooks, createNodeMiddleware } from '@octokit/webhooks';
 import { config } from '../config.js';
 import { handlePullRequest } from './pull-request.js';
 
 export function setupWebhooks(app: Application): void {
+  // SECURITY: Require webhook secret in production
   if (!config.webhookSecret) {
-    console.warn('⚠️  GITHUB_WEBHOOK_SECRET not set - webhook signature verification disabled');
+    if (config.nodeEnv === 'production') {
+      throw new Error('GITHUB_WEBHOOK_SECRET is required in production');
+    }
+    console.warn('⚠️  GITHUB_WEBHOOK_SECRET not set - webhook signature verification disabled (dev only)');
   }
 
   const webhooks = new Webhooks({
-    secret: config.webhookSecret || 'development',
+    secret: config.webhookSecret || 'development-only-secret',
   });
 
   // Handle pull request events
@@ -50,9 +54,4 @@ export function setupWebhooks(app: Application): void {
 
   // Mount webhook middleware
   app.use('/webhooks', createNodeMiddleware(webhooks));
-
-  // Fallback for direct POST (useful for testing)
-  app.post('/webhooks', (req: Request, res: Response) => {
-    res.status(200).json({ received: true });
-  });
 }

@@ -2,6 +2,13 @@ import { PullRequestEvent } from '@octokit/webhooks-types';
 import { RigourService } from '../services/rigour.js';
 import { GitHubService } from '../services/github.js';
 
+// Track in-progress analyses to prevent duplicates
+const inProgressAnalyses = new Map<string, boolean>();
+
+function getAnalysisKey(repo: string, prNumber: number, sha: string): string {
+  return `${repo}#${prNumber}@${sha}`;
+}
+
 export async function handlePullRequest(payload: PullRequestEvent): Promise<void> {
   const { pull_request: pr, repository, installation } = payload;
 
@@ -10,12 +17,21 @@ export async function handlePullRequest(payload: PullRequestEvent): Promise<void
     return;
   }
 
+  // Deduplicate rapid webhook events
+  const analysisKey = getAnalysisKey(repository.full_name, pr.number, pr.head.sha);
+  if (inProgressAnalyses.get(analysisKey)) {
+    console.log(`⏭️  Skipping duplicate analysis for ${analysisKey}`);
+    return;
+  }
+  inProgressAnalyses.set(analysisKey, true);
+
   const github = new GitHubService(installation.id);
   const rigour = new RigourService();
+  let checkRunId: number | null = null;
 
   try {
     // Create a check run to show we're analyzing
-    const checkRunId = await github.createCheckRun(
+    checkRunId = await github.createCheckRun(
       repository.owner.login,
       repository.name,
       pr.head.sha,
@@ -30,7 +46,7 @@ export async function handlePullRequest(payload: PullRequestEvent): Promise<void
       pr.number
     );
 
-    // Get changed files
+    // Get changed files (with pagination)
     const files = await github.getPRFiles(
       repository.owner.login,
       repository.name,
@@ -80,18 +96,22 @@ export async function handlePullRequest(payload: PullRequestEvent): Promise<void
   } catch (error) {
     console.error(`Error analyzing PR ${repository.full_name}#${pr.number}:`, error);
 
-    // Update check run with error
-    try {
-      await github.createCheckRun(
-        repository.owner.login,
-        repository.name,
-        pr.head.sha,
-        'Rigour Analysis',
-        'failure',
-        'An error occurred during analysis. Please check the logs.'
-      );
-    } catch (updateError) {
-      console.error('Failed to update check run with error:', updateError);
+    // Update the EXISTING check run with error (not create new one)
+    if (checkRunId) {
+      try {
+        await github.updateCheckRun(
+          repository.owner.login,
+          repository.name,
+          checkRunId,
+          'failure',
+          `An error occurred during analysis: ${error instanceof Error ? error.message : 'Unknown error'}`
+        );
+      } catch (updateError) {
+        console.error('Failed to update check run with error:', updateError);
+      }
     }
+  } finally {
+    // Clean up deduplication tracking
+    inProgressAnalyses.delete(analysisKey);
   }
 }
