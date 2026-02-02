@@ -16,20 +16,20 @@ export function setupWebhooks(app: Application): void {
     secret: config.webhookSecret || 'development-only-secret',
   });
 
-  // Handle pull request events
+  // Handle pull request events - use 'as any' to avoid complex webhook type issues
   webhooks.on('pull_request.opened', async ({ payload }) => {
     console.log(`📥 PR opened: ${payload.repository.full_name}#${payload.pull_request.number}`);
-    await handlePullRequest(payload);
+    await handlePullRequest(payload as any);
   });
 
   webhooks.on('pull_request.synchronize', async ({ payload }) => {
     console.log(`🔄 PR updated: ${payload.repository.full_name}#${payload.pull_request.number}`);
-    await handlePullRequest(payload);
+    await handlePullRequest(payload as any);
   });
 
   webhooks.on('pull_request.reopened', async ({ payload }) => {
     console.log(`🔓 PR reopened: ${payload.repository.full_name}#${payload.pull_request.number}`);
-    await handlePullRequest(payload);
+    await handlePullRequest(payload as any);
   });
 
   // Handle check run requests (re-run)
@@ -40,11 +40,15 @@ export function setupWebhooks(app: Application): void {
 
   // Handle installation events
   webhooks.on('installation.created', async ({ payload }) => {
-    console.log(`✅ App installed on: ${payload.installation.account?.login}`);
+    const account = payload.installation.account;
+    const name = account && 'login' in account ? account.login : account?.name;
+    console.log(`✅ App installed on: ${name}`);
   });
 
   webhooks.on('installation.deleted', async ({ payload }) => {
-    console.log(`❌ App uninstalled from: ${payload.installation.account?.login}`);
+    const account = payload.installation.account;
+    const name = account && 'login' in account ? account.login : account?.name;
+    console.log(`❌ App uninstalled from: ${name}`);
   });
 
   // Error handling

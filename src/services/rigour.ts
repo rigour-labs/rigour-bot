@@ -94,7 +94,7 @@ export class RigourService {
         throw new Error(`Rigour API error: ${response.status}`);
       }
 
-      const data = await response.json();
+      const data = (await response.json()) as { result?: { content?: Array<{ text?: string }> } };
       const result = data.result?.content?.[0]?.text;
 
       if (!result) {
@@ -113,7 +113,7 @@ export class RigourService {
     }
   }
 
-  private async analyzeLocally(input: AnalyzeInput): Promise<AnalyzeResult> {
+  private analyzeLocally(input: AnalyzeInput): AnalyzeResult {
     // Local analysis using pattern-based checks
     const findings: RigourFinding[] = [];
 
@@ -269,17 +269,28 @@ export class RigourService {
     return `Found ${parts.join(', ')}`;
   }
 
-  private findingsToAnnotations(findings: RigourFinding[]) {
+  private findingsToAnnotations(findings: RigourFinding[]): Array<{
+    path: string;
+    start_line: number;
+    end_line: number;
+    annotation_level: 'notice' | 'warning' | 'failure';
+    message: string;
+    title?: string;
+  }> {
     return findings
       .filter((f) => f.file && f.line)
-      .map((f) => ({
-        path: f.file!,
-        start_line: f.line!,
-        end_line: f.endLine || f.line!,
-        annotation_level: f.severity === 'error' ? 'failure' : f.severity === 'warning' ? 'warning' : 'notice' as const,
-        message: f.suggestion ? `${f.message}\n\nSuggestion: ${f.suggestion}` : f.message,
-        title: f.gate,
-      }));
+      .map((f) => {
+        const level: 'notice' | 'warning' | 'failure' =
+          f.severity === 'error' ? 'failure' : f.severity === 'warning' ? 'warning' : 'notice';
+        return {
+          path: f.file!,
+          start_line: f.line!,
+          end_line: f.endLine || f.line!,
+          annotation_level: level,
+          message: f.suggestion ? `${f.message}\n\nSuggestion: ${f.suggestion}` : f.message,
+          title: f.gate,
+        };
+      });
   }
 
   private generateReviewBody(findings: RigourFinding[], input: AnalyzeInput): string {

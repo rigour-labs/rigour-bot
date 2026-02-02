@@ -39,7 +39,7 @@ export class GitHubService {
     headSha: string,
     name: string,
     status: 'queued' | 'in_progress' | 'completed',
-    conclusion?: string
+    conclusion?: 'success' | 'failure' | 'neutral' | 'cancelled' | 'skipped' | 'timed_out' | 'action_required'
   ): Promise<number> {
     const response = await this.octokit.checks.create({
       owner,
