@@ -67,6 +67,7 @@ export async function handlePullRequest(payload: PullRequestEvent): Promise<void
         deletions: f.deletions,
         patch: f.patch,
       })),
+      installationId: installation.id,
     });
 
     // Update check run with results

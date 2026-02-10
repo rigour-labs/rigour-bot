@@ -1,4 +1,8 @@
+import fs from 'fs-extra';
+import path from 'path';
+import os from 'os';
 import { config } from '../config.js';
+import { GitHubService } from './github.js';
 
 interface AnalyzeInput {
   repository: string;
@@ -13,6 +17,7 @@ interface AnalyzeInput {
     deletions: number;
     patch?: string;
   }>;
+  installationId: number;
 }
 
 interface RigourFinding {
@@ -60,12 +65,38 @@ export class RigourService {
   }
 
   async analyze(input: AnalyzeInput): Promise<AnalyzeResult> {
+    const tempDir = path.join(os.tmpdir(), `rigour-${input.commit}-${Date.now()}`);
+    const github = new GitHubService(input.installationId);
+
     try {
+      // 1. Create Sparse Workspace (Protecting the Moat: No full clone)
+      await fs.ensureDir(tempDir);
+
+      // 2. Surgical File Fetching
+      // We only fetch files actually touched by the PR for high-fidelity analysis
+      const fetchPromises = input.files.map(async (file) => {
+        if (file.status === 'removed') return;
+        try {
+          const content = await github.getFileContent(
+            input.repository.split('/')[0],
+            input.repository.split('/')[1],
+            file.filename,
+            input.commit
+          );
+          const fullPath = path.join(tempDir, file.filename);
+          await fs.ensureDir(path.dirname(fullPath));
+          await fs.writeFile(fullPath, content);
+        } catch (e) {
+          console.error(`Failed to fetch ${file.filename}:`, e);
+        }
+      });
+      await Promise.all(fetchPromises);
+
       // Add timeout to prevent hanging requests
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 30000); // 30s timeout
+      const timeout = setTimeout(() => controller.abort(), 60000); // 60s for high-fidelity
 
-      // Call Rigour MCP API to analyze the changes
+      // 3. Call Rigour MCP API pointing to the Sparse Workspace
       const response = await fetch(`${this.apiUrl}/mcp`, {
         method: 'POST',
         headers: {
@@ -73,12 +104,12 @@ export class RigourService {
         },
         body: JSON.stringify({
           jsonrpc: '2.0',
-          id: `rigour-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          id: `rigour-${Date.now()}`,
           method: 'tools/call',
           params: {
             name: 'rigour_review',
             arguments: {
-              cwd: process.cwd(), // Default to bot's working dir or handle specifically
+              cwd: tempDir,
               repository: input.repository,
               branch: input.branch,
               diff: input.diff,
@@ -105,12 +136,15 @@ export class RigourService {
 
       return this.parseRigourResponse(result, input);
     } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        console.error('Rigour API timeout, falling back to local analysis');
-      } else {
-        console.error('Rigour API error, falling back to local analysis:', error);
-      }
+      console.error('Rigour high-fidelity analysis failed, falling back:', error);
       return this.analyzeLocally(input);
+    } finally {
+      // 4. Secure Cleanup (Moat Protection)
+      try {
+        await fs.remove(tempDir);
+      } catch (e) {
+        console.error('Failed to cleanup temp workspace:', e);
+      }
     }
   }
 
