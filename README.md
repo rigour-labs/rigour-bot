@@ -2,13 +2,15 @@
 
 [![GitHub Marketplace](https://img.shields.io/badge/Marketplace-Rigour%20Bot-blue?logo=github)](https://github.com/marketplace/rigour-bot)
 
-GitHub App for automated code review using [Rigour](https://rigour.run) - like CodeRabbit but for drift detection.
+GitHub App for automated code review using Rigour Bot is a GitHub App that automatically analyzes your pull requests using the **Rigour High-Fidelity Analysis Engine**. Unlike basic linters, Rigour performs deep AST analysis, architectural drift detection, and security pattern matching to ensure your code meets the highest engineering standards.
 
-## Features
+## Key Features
 
-- 🔍 **Automated PR Reviews** - Analyzes pull requests for code drift patterns
-- ✅ **GitHub Check Runs** - Creates check runs with detailed annotations
-- 💬 **Inline Comments** - Posts review comments on specific lines
+-   **High-Fidelity Review**: Leverages the full `rigour-core` engine (AST, Security, Staleness).
+-   **Zero Configuration**: Works out of the box with intelligent defaults.
+-   **PR Annotations**: Precise line-level feedback directly on your PR diff.
+-   **Architectural Checks**: Enforce layering and dependency boundaries at the PR level.
+-   **Security Sentinel**: Detects common vulnerabilities (SQLi, XSS, Prototype Pollution) before they merge.
 - 🛡️ **Security Drift** - Detects hardcoded secrets, SQL injection risks
 - 📐 **Pattern Drift** - Catches console.logs, TODOs, deprecated APIs
 - 🏗️ **Architecture Drift** - Layer violations, circular dependencies
@@ -20,7 +22,18 @@ GitHub App for automated code review using [Rigour](https://rigour.run) - like C
 1. Go to [GitHub Marketplace - Rigour Bot](https://github.com/marketplace/rigour-bot)
 2. Click **"Install it for free"**
 3. Select repositories to enable
-4. Done! Rigour will analyze your PRs automatically
+4. Done! Rigour will analyze your PRs automatically. **No `rigour.toml` or `rigour.yml` required** – the bot uses high-fidelity defaults out of the box.
+
+---
+
+## Configuration (Optional)
+
+While Rigour Bot works without configuration, you can customize its behavior using a `rigour.yml` or `rigour.toml` file in your repository root. This is useful for:
+- Overriding complexity thresholds
+- Specifying custom protected paths
+- Customizing AST gate rules
+
+See the [Configuration Reference](https://docs.rigour.run/reference/configuration) for all available options.
 
 ---
 
@@ -189,6 +202,21 @@ rigour-bot/
 | `pattern-console-log` | 🟡 Warning | Console statements in production code |
 | `stale-react-lifecycle` | 🟡 Warning | Deprecated React lifecycle methods |
 | `pattern-todo-comment` | 🔵 Info | TODO/FIXME/HACK comments |
+
+## Troubleshooting
+
+### Bot is installed but not running
+If Rigour Bot is installed on your repository but you don't see any activity on your PRs:
+
+1. **Check Railway Logs**: Ensure your bot service is running and not crashing.
+2. **Verify Environment Variables**: Make sure `GITHUB_APP_ID`, `GITHUB_PRIVATE_KEY`, and `GITHUB_WEBHOOK_SECRET` are correctly set.
+3. **Webhook Visibility**: If self-hosting, ensure your server is reachable from GitHub. Check the "Advanced" tab in your GitHub App settings for webhook delivery logs.
+4. **Permissions**: Go to your GitHub App settings and ensure "Read & Write" access is granted for **Checks** and **Pull Requests**.
+
+### "Rigour.yml not found" logs
+You might see logs indicating a config file wasn't found. This is **normal** behavior. Rigour Bot will automatically fall back to its internal default quality gates if no configuration file is present.
+
+---
 
 ## API Endpoints
 

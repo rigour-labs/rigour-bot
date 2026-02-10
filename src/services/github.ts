@@ -114,7 +114,7 @@ export class GitHubService {
     let page = 1;
     const perPage = 100;
 
-    while (true) {
+    for (; ;) {
       const response = await this.octokit.pulls.listFiles({
         owner,
         repo,

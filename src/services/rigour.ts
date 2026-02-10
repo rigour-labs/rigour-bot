@@ -78,6 +78,7 @@ export class RigourService {
           params: {
             name: 'rigour_review',
             arguments: {
+              cwd: process.cwd(), // Default to bot's working dir or handle specifically
               repository: input.repository,
               branch: input.branch,
               diff: input.diff,
@@ -228,13 +229,14 @@ export class RigourService {
     // Parse the Rigour response format
     try {
       const parsed = JSON.parse(result);
-      const findings: RigourFinding[] = parsed.failures?.map((f: RigourAPIFailure) => ({
+      const findings: RigourFinding[] = parsed.failures?.map((f: RigourAPIFailure & { endLine?: number }) => ({
         id: f.id,
         gate: f.gate,
         severity: f.severity === 'FAIL' ? 'error' : 'warning',
         message: f.message,
         file: f.file,
         line: f.line,
+        endLine: f.endLine, // Added endLine support
         suggestion: f.suggestion,
       })) || [];
 
