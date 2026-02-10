@@ -4,13 +4,13 @@
 
 GitHub App for automated code review using Rigour Bot is a GitHub App that automatically analyzes your pull requests using the **Rigour High-Fidelity Analysis Engine**. Unlike basic linters, Rigour performs deep AST analysis, architectural drift detection, and security pattern matching to ensure your code meets the highest engineering standards.
 
-## Key Features
+## Privacy & Performance: Sparse Sync
 
--   **High-Fidelity Review**: Leverages the full `rigour-core` engine (AST, Security, Staleness).
--   **Zero Configuration**: Works out of the box with intelligent defaults.
--   **PR Annotations**: Precise line-level feedback directly on your PR diff.
--   **Architectural Checks**: Enforce layering and dependency boundaries at the PR level.
--   **Security Sentinel**: Detects common vulnerabilities (SQLi, XSS, Prototype Pollution) before they merge.
+Unlike other bots that require full read access or clone your entire repository, Rigour Bot uses a **Sparse Sync** strategy:
+- **Surgical Fetching**: Only files involved in the pull request are fetched.
+- **Volatile Storage**: Files are written to a temporary, non-persistent memory workspace.
+- **Zero Drift Persistence**: Your entire codebase is never cloned or stored on our servers.
+- **High-Fidelity Context**: Provides the engine just enough context to perform deep AST and Security checks without the security risk of full access.
 - 🛡️ **Security Drift** - Detects hardcoded secrets, SQL injection risks
 - 📐 **Pattern Drift** - Catches console.logs, TODOs, deprecated APIs
 - 🏗️ **Architecture Drift** - Layer violations, circular dependencies
