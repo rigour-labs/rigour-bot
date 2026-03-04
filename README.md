@@ -99,6 +99,26 @@ npm run build
 npm start
 ```
 
+#### Option D: Azure Container Apps
+
+Use the deployment script to create/update a dedicated Azure Resource Group + Container App.
+
+```bash
+# Required secrets
+export GITHUB_APP_ID=123456
+export GITHUB_PRIVATE_KEY="$(cat private-key.pem)"
+export GITHUB_WEBHOOK_SECRET=your-secret
+
+# Required: globally unique Azure Container Registry name
+export ACR_NAME=rigourbotacr12345
+
+# Deploy
+./scripts/deploy-azure.sh --app rigour-bot --rg rigour-rg --location eastus
+```
+
+After deploy, set your GitHub App webhook URL to:
+`https://<container-app-fqdn>/webhooks`
+
 ### 3. Environment Variables
 
 | Variable | Required | Description |
@@ -108,11 +128,32 @@ npm start
 | `GITHUB_PRIVATE_KEY` | ✅* | Full private key content (alternative to path) |
 | `GITHUB_WEBHOOK_SECRET` | ✅ | Webhook secret from app settings |
 | `RIGOUR_API_URL` | ❌ | Rigour MCP API (default: https://mcp.rigour.run/api) |
+| `RIGOUR_EXEC_MODE` | ❌ | Analysis mode: `cli_first` (default), `cli_only`, `mcp_only` |
+| `RIGOUR_DEEP_ENABLED` | ❌ | Enable deep analysis pipeline (`true`/`false`, default `false`) |
+| `RIGOUR_DEEP_MODE` | ❌ | Deep tier: `off` (default), `deep`, `pro` |
+| `RIGOUR_PROVIDER` | ❌ | Deep provider for BYOK mode (e.g. `anthropic`, `openai`, `groq`) |
+| `RIGOUR_API_KEY` | ❌ | Optional BYOK provider key for deep execution |
+| `RIGOUR_API_BASE_URL` | ❌ | Optional custom API base for provider proxy/self-host |
+| `RIGOUR_MODEL_NAME` | ❌ | Optional provider model override |
+| `RIGOUR_TIMEOUT_MS` | ❌ | Analysis timeout in ms (default: `90000`) |
+| `RIGOUR_MAX_CONCURRENCY` | ❌ | Max concurrent analyses per instance (default: `2`) |
+| `RIGOUR_FALLBACK_TO_MCP` | ❌ | On CLI error, fallback to MCP (`true` by default) |
+| `RIGOUR_SECURITY_AUDIT_ENABLED` | ❌ | Enables optional security-audit enrichment hooks |
+| `RIGOUR_DEEP_ALLOWED_REPOS` | ❌ | Comma-separated allowlist for deep mode repos (`org/repo`) |
+| `RIGOUR_DEEP_ALLOWED_ORGS` | ❌ | Comma-separated allowlist for deep mode orgs |
+| `RIGOUR_MAX_CHANGED_LOC_FOR_DEEP` | ❌ | Disable deep if PR churn exceeds threshold (default: `3000`) |
 | `PORT` | ❌ | Server port (default: 3000) |
 | `NODE_ENV` | ❌ | `development` or `production` |
 | `WEBHOOK_PROXY_URL` | ❌ | Smee URL for local development |
 
 *Use either `GITHUB_PRIVATE_KEY_PATH` or `GITHUB_PRIVATE_KEY`, not both.
+
+### Security and Key Handling
+
+- Default model is **managed key** for standard operation.
+- **BYOK is optional** via `RIGOUR_API_KEY` + `RIGOUR_PROVIDER`.
+- Runtime logs redact configured secrets and provider tokens.
+- Health/readiness expose runtime capability status (`cli_ready`, `mcp_ready`) at `/health` and `/ready`.
 
 ---
 

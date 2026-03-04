@@ -3,6 +3,7 @@ import { createServer } from 'http';
 import { config } from './config.js';
 import { setupWebhooks } from './handlers/webhooks.js';
 import { setupSmeeProxy } from './utils/smee.js';
+import { getRigourRuntimeReadiness } from './services/rigour.js';
 
 const app = express();
 
@@ -10,13 +11,32 @@ const app = express();
 app.use(express.json());
 
 // Health check endpoint
-app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', service: 'rigour-bot', version: '0.1.0' });
+app.get('/health', async (_req, res) => {
+  const runtime = await getRigourRuntimeReadiness();
+  res.json({
+    status: 'ok',
+    service: 'rigour-bot',
+    version: '0.1.0',
+    rigour: {
+      exec_mode: config.rigourExecMode,
+      deep_mode: config.rigourDeepMode,
+      cli_ready: runtime.cli_ready,
+      mcp_ready: runtime.mcp_ready,
+    },
+  });
 });
 
 // Readiness check (for k8s/container orchestration)
-app.get('/ready', (_req, res) => {
-  res.json({ ready: true });
+app.get('/ready', async (_req, res) => {
+  const runtime = await getRigourRuntimeReadiness();
+  const ready = config.rigourExecMode === 'mcp_only' ? runtime.mcp_ready : runtime.cli_ready || runtime.mcp_ready;
+
+  res.status(ready ? 200 : 503).json({
+    ready,
+    exec_mode: config.rigourExecMode,
+    cli_ready: runtime.cli_ready,
+    mcp_ready: runtime.mcp_ready,
+  });
 });
 
 // Setup GitHub webhook handlers
@@ -65,6 +85,7 @@ async function start() {
     console.log(`📍 Webhooks: http://localhost:${config.port}/webhooks`);
     console.log(`❤️  Health: http://localhost:${config.port}/health`);
     console.log(`🌍 Environment: ${config.nodeEnv}`);
+    console.log(`🧠 Rigour exec mode: ${config.rigourExecMode}`);
   });
 }
 

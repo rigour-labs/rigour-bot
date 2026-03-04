@@ -29,6 +29,9 @@ RUN addgroup --system --gid 1001 nodejs && \
 COPY package*.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
+# Install Rigour CLI for CLI-first analysis mode
+RUN npm install -g @rigour-labs/cli
+
 # Copy built files
 COPY --from=builder /app/dist ./dist
 
@@ -41,11 +44,14 @@ USER rigour
 # Environment
 ENV NODE_ENV=production
 ENV PORT=3000
+ENV RIGOUR_EXEC_MODE=cli_first
+ENV RIGOUR_DEEP_ENABLED=false
+ENV RIGOUR_DEEP_MODE=off
 
 EXPOSE 3000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ready || exit 1
 
 CMD ["node", "dist/index.js"]
