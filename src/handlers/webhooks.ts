@@ -56,6 +56,6 @@ export function setupWebhooks(app: Application): void {
     console.error('Webhook error:', error);
   });
 
-  // Mount webhook middleware
-  app.use('/webhooks', createNodeMiddleware(webhooks));
+  // Mount webhook middleware at the public route expected by GitHub.
+  app.use(createNodeMiddleware(webhooks, { path: '/webhooks' }));
 }
