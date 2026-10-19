@@ -1,3 +1,5 @@
+> **Archived.** This early GitHub App prototype was never released: the Marketplace listing, pricing, hosted service and features described below do not exist. To review pull requests with Rigour, use the GitHub Action in [rigour-labs/rigour](https://github.com/rigour-labs/rigour) (see [docs/CI.md](https://github.com/rigour-labs/rigour/blob/main/docs/CI.md)).
+
 # Rigour Bot
 
 [![GitHub Marketplace](https://img.shields.io/badge/Marketplace-Rigour%20Bot-blue?logo=github)](https://github.com/marketplace/rigour-bot)
